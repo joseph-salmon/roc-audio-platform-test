@@ -1,0 +1,32 @@
+# Ignore the following directories and file extensions
+*.o
+*.so
+*.so.*
+*.obj
+*.dll
+*.dylib
+*.lib
+*.def
+*.tmp
+*.wasm
+*.exe
+*.pdb
+
+# llvm human-readable output
+*.ll
+*.bc
+
+# roc cache files
+*.rh*
+*.rm*
+preprocessedhost
+metadata
+
+#editors
+.vscode/
+
+# macOS .DS_Store files
+.DS_Store
+
+# Environment variables
+.env

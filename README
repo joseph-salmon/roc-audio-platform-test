@@ -1,0 +1,4 @@
+Run:
+gcc -c platform/host.c
+roc build --no-link main.roc
+gcc -o main main.o host.o -lportaudio && ./main
