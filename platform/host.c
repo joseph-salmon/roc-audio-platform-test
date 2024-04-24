@@ -127,22 +127,21 @@ struct CallbackUserData
 };
 
 // Roc data initialisers
-// TODO: convert this to a Model struct
 struct Model model;
-
 struct RocList rocAudioBuffer;
 
 // // Define the Roc function
 extern void roc__mainForHost_1_exposed_generic(void *);
 extern size_t roc__mainForHost_1_exposed_size();
 
-// // Init
-// // Arguments: return value from roc, callback, argument to callback?
+// Init
+
+// Arguments: return value from roc, callback, argument to callback?
 extern void roc__mainForHost_0_caller(void *, void *, void *);
 extern size_t roc__mainForHost_0_size();
 
 // Define the Roc update function
-extern void roc__mainForHost_1_caller(void *, void *, void *);
+extern void roc__mainForHost_1_caller(struct Model *, void *, void *);
 extern size_t roc__mainForHost_1_size();
 
 // Update Task
@@ -168,10 +167,9 @@ static int callback(const void *in,
   ud->rocAudioBuffer->data = (float *)in;
   ud->rocAudioBuffer->len = framesPerBuffer;
   ud->rocAudioBuffer->capacity = framesPerBuffer;
+
   // run the update function
-  // CAUSING SEGFAULT
   roc__mainForHost_1_caller(ud->model, NULL, ud->update_rocMain);
-  // This one is fine
   roc__mainForHost_2_caller(NULL, ud->update_rocMain, ud->model);
 
   // Copy the output from the Roc buffer to the audio codec output buffer
@@ -191,7 +189,7 @@ int main()
   size_t size = roc__mainForHost_1_exposed_size();
   void *rocMain = roc_alloc(size, 0);
   roc__mainForHost_1_exposed_generic(rocMain);
-  roc__mainForHost_0_caller(NULL, &model, rocMain);
+  roc__mainForHost_0_caller(NULL, rocMain, &model);
 
   size_t update_task_size = roc__mainForHost_2_size();
   void *update_rocMain = roc_alloc(update_task_size, 0);
