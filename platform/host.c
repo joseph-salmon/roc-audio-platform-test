@@ -171,6 +171,7 @@ static int callback(const void *in,
   // run the update function
   // CAUSING SEGFAULT
   roc__mainForHost_1_caller(ud->model, NULL, ud->update_rocMain);
+  // This one is fine
   roc__mainForHost_2_caller(NULL, ud->update_rocMain, ud->model);
 
   // Copy the output from the Roc buffer to the audio codec output buffer
