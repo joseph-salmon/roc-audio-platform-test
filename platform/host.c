@@ -22,13 +22,12 @@
 #define NUM_CHANNELS 1 // Adjust for mono (1) or stereo (2)
 
 // Roc memory management
+// TODO: convert to a deterministic memory management trategy (i.e. not using malloc/free)
 
 void *roc_alloc(size_t size, unsigned int alignment)
 {
 
-  void *ptr = malloc(size);
-  printf("Memory allocated: %zu\n", (void *)ptr);
-  return ptr;
+  return malloc(size);
 }
 
 void *roc_realloc(void *ptr, size_t new_size, size_t old_size, unsigned int alignment)
@@ -88,7 +87,17 @@ int roc_getppid()
 #endif
 }
 
-// Define the structure of the audio I/O buffer the Roc will work
+// Define the structure of the main Roc function
+struct RocMain
+{
+  void *init;
+  void *update;
+  void *audioCallback;
+};
+
+// Define the structure of the audio I/O buffer that Roc will work with
+// Currently just a mono audio signal
+
 struct RocList
 {
   float *data;
@@ -96,11 +105,24 @@ struct RocList
   size_t capacity;
 };
 
-const size_t SLICE_BIT = ((size_t)1) << (8 * sizeof(size_t) - 1);
-const size_t REFCOUNT_MAX = 0;
+// Offset utility
+void *subtract_from_pointer(void *ptr)
+{
+  char *char_ptr = (char *)ptr; // Cast to char* to perform byte-wise arithmetic
+  char_ptr -= 0x8;              // Subtract 8 bytes
+  return (void *)char_ptr;      // Cast back to void* if needed
+}
 
-// Define the Roc function
-extern void *roc__mainForHost_1_exposed_generic(struct RocList *outBuffer, struct RocList *inBuffer);
+// // Define the Roc function
+extern void roc__mainForHost_1_exposed_generic(struct RocMain *);
+extern size_t roc__mainForHost_1_exposed_size();
+
+// // Init
+// // Arguments: return value from roc, callback, argument to callback?
+extern void roc__mainForHost_0_caller(struct RocList *, void *, struct RocList *);
+extern size_t roc__mainForHost_0_size();
+
+struct RocMain *rocMain;
 
 // Audio loop callback function
 static int callback(const void *in,
@@ -111,29 +133,35 @@ static int callback(const void *in,
                     void *userData)
 {
 
-  size_t rc = REFCOUNT_MAX;
-  size_t slice_bits = (((size_t)&rc) >> 1) | SLICE_BIT;
-
   // Declare Roc's input and output buffers
-  struct RocList rocIn = {(float *)in, (size_t)framesPerBuffer, slice_bits};
+  struct RocList rocIn = {(float *)in, (size_t)framesPerBuffer, (size_t)framesPerBuffer};
   struct RocList rocOut;
 
-  // Call the main Roc function
-  // Currently leaking memory
-  roc__mainForHost_1_exposed_generic(&rocOut, &rocIn);
+  // Call the Roc closure to process audio buffers
+  roc__mainForHost_0_caller(&rocIn, rocMain, &rocOut);
 
   // Copy the output from the Roc buffer to the audio codec output buffer
   memcpy(out, rocOut.data, framesPerBuffer * sizeof(float));
+
+  // Release the output buffer
+  void *ptr = subtract_from_pointer(rocOut.data);
+  roc_dealloc(ptr, 0);
 
   return paContinue;
 }
 
 int main()
 {
+
+  // Initialise Roc
+  size_t size = roc__mainForHost_1_exposed_size();
+  rocMain = roc_alloc(size, 0);
+  roc__mainForHost_1_exposed_generic(rocMain);
+
+  // Initialise PortAudio
   PaError err;
   PaStream *stream;
 
-  // Initialize PortAudio
   err = Pa_Initialize();
   if (err != paNoError)
   {

@@ -7,16 +7,16 @@ rm -f main.o host.o
 gcc -c platform/host.c || exit 1
 
 # Build main.roc
-roc build --no-link --emit-llvm-ir main.roc || exit 1
+roc build --no-link --emit-llvm-ir app.roc || exit 1
 
 # Link and compile main with host.o and portaudio library
-gcc -o main main.o host.o -lportaudio || exit 1
+gcc -o app app.o host.o -lportaudio || exit 1
 
 # Run the program
-./main
+./app
 
 # Clean up object files after execution
-rm -f main.o host.o
+rm -f app.o host.o
 
 exit 0
 

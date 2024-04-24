@@ -1,9 +1,29 @@
-platform "echo-in-c"
-    requires {} { main : List F32 -> List F32 }
-    exposes []
+platform "roc-audio-platform"
+    requires { Model } { main : Program Model }
+    exposes [Core, Action, Task]
     packages {}
-    imports []
+    imports [Core.{ Program }, Task.{ Task }]
     provides [mainForHost]
 
-mainForHost : List F32 -> List F32
-mainForHost = \inputBuffer -> main inputBuffer
+ProgramForHost : {
+    init : Task (Box Model) [],
+    update : Box Model -> Task (Box Model) [],
+    audioCallback : List F32 -> List F32,
+}
+
+mainForHost : ProgramForHost
+mainForHost = { init, update, audioCallback }
+
+init : Task (Box Model) []
+init = main.init |> Task.map Box.box
+
+update : Box Model -> Task (Box Model) []
+update = \boxedModel ->
+    boxedModel
+    |> Box.unbox
+    |> main.update
+    |> Task.map
+        Box.box
+
+audioCallback : List F32 -> List F32
+audioCallback = main.audioCallback
