@@ -2,22 +2,25 @@ app "app"
     packages { pf: "platform/main.roc" }
     imports [
         pf.Task.{ Task },
-        # pf.Core,
+        pf.Core,
     ]
     provides [main, Model] to pf
 
-main = { init, update, audioCallback }
+main = { init, update }
 
-Model : { frameCount : I32 }
+Model : { frameCount : I32, signal : List F32 }
 
 init : Task Model []
 init =
-    Task.ok { frameCount: 0 }
+    Task.ok { frameCount: 0, signal: [] }
 
 update : Model -> Task Model []
 update = \model ->
     newCount = model.frameCount + 1
-    Task.ok { model & frameCount: newCount }
+    inBuffer <- Core.getCurrentInBuffer |> Task.await
+    # TODO: configure the host platform to retrieve the new signal from the model
+    newSignal = audioCallback inBuffer
+    Task.ok { model & frameCount: newCount, signal: newSignal }
 
 # Currently just mono in, mono out
 audioCallback : List F32 -> List F32

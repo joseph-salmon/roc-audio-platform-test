@@ -87,13 +87,13 @@ int roc_getppid()
 #endif
 }
 
-// Define the structure of the main Roc function
-struct RocMain
+// Offset utility
+void *subtract_from_pointer(void *ptr)
 {
-  void *init;
-  void *update;
-  void *audioCallback;
-};
+  char *char_ptr = (char *)ptr; // Cast to char* to perform byte-wise arithmetic
+  char_ptr -= 0x8;              // Subtract 8 bytes
+  return (void *)char_ptr;      // Cast back to void* if needed
+}
 
 // Define the structure of the audio I/O buffer that Roc will work with
 // Currently just a mono audio signal
@@ -105,24 +105,52 @@ struct RocList
   size_t capacity;
 };
 
-// Offset utility
-void *subtract_from_pointer(void *ptr)
+// Define the structure of the Roc model
+struct Model
 {
-  char *char_ptr = (char *)ptr; // Cast to char* to perform byte-wise arithmetic
-  char_ptr -= 0x8;              // Subtract 8 bytes
-  return (void *)char_ptr;      // Cast back to void* if needed
-}
+  int count;
+  struct RocList signal;
+};
+
+// Define the structure of the main Roc function
+struct RocMain
+{
+  void *init;
+  void *update;
+};
+
+struct CallbackUserData
+{
+  struct Model *model;
+  void *update_rocMain;
+  struct RocList *rocAudioBuffer;
+};
+
+// Roc data initialisers
+// TODO: convert this to a Model struct
+struct Model model;
+
+struct RocList rocAudioBuffer;
 
 // // Define the Roc function
-extern void roc__mainForHost_1_exposed_generic(struct RocMain *);
+extern void roc__mainForHost_1_exposed_generic(void *);
 extern size_t roc__mainForHost_1_exposed_size();
 
 // // Init
 // // Arguments: return value from roc, callback, argument to callback?
-extern void roc__mainForHost_0_caller(struct RocList *, void *, struct RocList *);
+extern void roc__mainForHost_0_caller(void *, void *, void *);
 extern size_t roc__mainForHost_0_size();
 
-struct RocMain *rocMain;
+// Define the Roc update function
+extern void roc__mainForHost_1_caller(void *, void *, void *);
+extern size_t roc__mainForHost_1_size();
+
+// Update Task
+extern void roc__mainForHost_2_caller(void *, void *, void *);
+extern size_t roc__mainForHost_2_size();
+
+// Effects
+extern struct RocList roc_fx_getCurrentInBuffer();
 
 // Audio loop callback function
 static int callback(const void *in,
@@ -133,19 +161,24 @@ static int callback(const void *in,
                     void *userData)
 {
 
-  // Declare Roc's input and output buffers
-  struct RocList rocIn = {(float *)in, (size_t)framesPerBuffer, (size_t)framesPerBuffer};
-  struct RocList rocOut;
+  // Destructure the userData arg
+  struct CallbackUserData *ud = (struct CallbackUserData *)userData;
 
   // Call the Roc closure to process audio buffers
-  roc__mainForHost_0_caller(&rocIn, rocMain, &rocOut);
+  ud->rocAudioBuffer->data = (float *)in;
+  ud->rocAudioBuffer->len = framesPerBuffer;
+  ud->rocAudioBuffer->capacity = framesPerBuffer;
+  // run the update function
+  // CAUSING SEGFAULT
+  roc__mainForHost_1_caller(ud->model, NULL, ud->update_rocMain);
+  roc__mainForHost_2_caller(NULL, ud->update_rocMain, ud->model);
 
   // Copy the output from the Roc buffer to the audio codec output buffer
-  memcpy(out, rocOut.data, framesPerBuffer * sizeof(float));
+  // memcpy(out, model.data, framesPerBuffer * sizeof(float));
 
   // Release the output buffer
-  void *ptr = subtract_from_pointer(rocOut.data);
-  roc_dealloc(ptr, 0);
+  // void *ptr = subtract_from_pointer(rocOut.data);
+  // roc_dealloc(ptr, 0);
 
   return paContinue;
 }
@@ -155,8 +188,18 @@ int main()
 
   // Initialise Roc
   size_t size = roc__mainForHost_1_exposed_size();
-  rocMain = roc_alloc(size, 0);
+  void *rocMain = roc_alloc(size, 0);
   roc__mainForHost_1_exposed_generic(rocMain);
+  roc__mainForHost_0_caller(NULL, &model, rocMain);
+
+  size_t update_task_size = roc__mainForHost_2_size();
+  void *update_rocMain = roc_alloc(update_task_size, 0);
+
+  // Prepare arg for audio callback
+  struct CallbackUserData *rocCallbackArgs = roc_alloc(sizeof(struct CallbackUserData), 0);
+  rocCallbackArgs->model = &model;
+  rocCallbackArgs->update_rocMain = update_rocMain,
+  rocCallbackArgs->rocAudioBuffer = &rocAudioBuffer;
 
   // Initialise PortAudio
   PaError err;
@@ -170,7 +213,7 @@ int main()
   }
 
   // Open a stream for playback and recording
-  err = Pa_OpenDefaultStream(&stream, NUM_CHANNELS, NUM_CHANNELS, paFloat32, SAMPLE_RATE, BLOCK_SIZE, callback, NULL);
+  err = Pa_OpenDefaultStream(&stream, NUM_CHANNELS, NUM_CHANNELS, paFloat32, SAMPLE_RATE, BLOCK_SIZE, callback, rocCallbackArgs);
   if (err != paNoError)
   {
     fprintf(stderr, "PortAudio error: %s\n", Pa_GetErrorText(err));
@@ -198,4 +241,10 @@ int main()
   Pa_Terminate();
 
   return 0;
+}
+
+// Pass the input buffer into Roc
+struct RocList roc_fx_getCurrentInBuffer(void)
+{
+  return rocAudioBuffer;
 }
