@@ -20,12 +20,12 @@ update = \model ->
     inBuffer <- Core.getCurrentInBuffer |> Task.await
     # TODO: configure the host platform to retrieve the new signal from the model
     newSignal = audioCallback inBuffer
+    {} <- Core.setCurrentOutBuffer newSignal |> Task.await
     Task.ok { model & frameCount: newCount, signal: newSignal }
 
 # Currently just mono in, mono out
 audioCallback : List F32 -> List F32
 audioCallback = \input ->
-
     testOutSigFunc input
 
 # A basic in->out signal function
@@ -43,7 +43,7 @@ sampleRate : F32
 sampleRate = 44100
 
 frequency : F32
-frequency = 6000
+frequency = 440
 
 pi : F32
 pi = 3.141592653589793

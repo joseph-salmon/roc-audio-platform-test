@@ -106,11 +106,11 @@ struct RocList
 };
 
 // Define the structure of the Roc model
-struct Model
-{
-  int count;
-  struct RocList signal;
-};
+// struct Model
+// {
+//   int count;
+//   struct RocList signal;
+// };
 
 // Define the structure of the main Roc function
 struct RocMain
@@ -121,14 +121,16 @@ struct RocMain
 
 struct CallbackUserData
 {
-  struct Model *model;
-  void *update_rocMain;
-  struct RocList *rocAudioBuffer;
+  void *model_;
+  void *update_rocMain_;
+  struct RocList *rocIn_;
+  struct RocList *rocOut_;
 };
 
 // Roc data initialisers
-struct Model model;
-struct RocList rocAudioBuffer;
+void *model;
+struct RocList rocIn;
+struct RocList rocOut;
 
 // // Define the Roc function
 extern void roc__mainForHost_1_exposed_generic(void *);
@@ -141,7 +143,7 @@ extern void roc__mainForHost_0_caller(void *, void *, void *);
 extern size_t roc__mainForHost_0_size();
 
 // Define the Roc update function
-extern void roc__mainForHost_1_caller(struct Model *, void *, void *);
+extern void roc__mainForHost_1_caller(void *, void *, void *);
 extern size_t roc__mainForHost_1_size();
 
 // Update Task
@@ -150,6 +152,18 @@ extern size_t roc__mainForHost_2_size();
 
 // Effects
 extern struct RocList roc_fx_getCurrentInBuffer();
+
+// Pass the input buffer into Roc
+struct RocList roc_fx_getCurrentInBuffer(void)
+{
+  return rocIn;
+}
+
+// Get the outbut buffer from Roc
+void roc_fx_setCurrentOutBuffer(struct RocList inBuffer)
+{
+  rocOut = inBuffer;
+}
 
 // Audio loop callback function
 static int callback(const void *in,
@@ -164,16 +178,16 @@ static int callback(const void *in,
   struct CallbackUserData *ud = (struct CallbackUserData *)userData;
 
   // Call the Roc closure to process audio buffers
-  ud->rocAudioBuffer->data = (float *)in;
-  ud->rocAudioBuffer->len = framesPerBuffer;
-  ud->rocAudioBuffer->capacity = framesPerBuffer;
+  ud->rocIn_->data = (float *)in;
+  ud->rocIn_->len = framesPerBuffer;
+  ud->rocIn_->capacity = framesPerBuffer;
 
   // run the update function
-  roc__mainForHost_1_caller(ud->model, NULL, ud->update_rocMain);
-  roc__mainForHost_2_caller(NULL, ud->update_rocMain, ud->model);
+  roc__mainForHost_1_caller(ud->model_, NULL, ud->update_rocMain_);
+  roc__mainForHost_2_caller(NULL, ud->update_rocMain_, ud->model_);
 
   // Copy the output from the Roc buffer to the audio codec output buffer
-  // memcpy(out, model.data, framesPerBuffer * sizeof(float));
+  memcpy(out, ud->rocOut_->data, framesPerBuffer * sizeof(float));
 
   // Release the output buffer
   // void *ptr = subtract_from_pointer(rocOut.data);
@@ -196,9 +210,10 @@ int main()
 
   // Prepare arg for audio callback
   struct CallbackUserData *rocCallbackArgs = roc_alloc(sizeof(struct CallbackUserData), 0);
-  rocCallbackArgs->model = &model;
-  rocCallbackArgs->update_rocMain = update_rocMain,
-  rocCallbackArgs->rocAudioBuffer = &rocAudioBuffer;
+  rocCallbackArgs->model_ = &model;
+  rocCallbackArgs->update_rocMain_ = update_rocMain,
+  rocCallbackArgs->rocIn_ = &rocIn;
+  rocCallbackArgs->rocOut_ = &rocOut;
 
   // Initialise PortAudio
   PaError err;
@@ -240,10 +255,4 @@ int main()
   Pa_Terminate();
 
   return 0;
-}
-
-// Pass the input buffer into Roc
-struct RocList roc_fx_getCurrentInBuffer(void)
-{
-  return rocAudioBuffer;
 }
