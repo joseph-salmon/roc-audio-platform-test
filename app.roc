@@ -6,53 +6,71 @@ app "app"
     ]
     provides [main, Model] to pf
 
+Model : {
+    frameCount : U32,
+    sinePhase : F32,
+    signal : List F32,
+}
+
+CycleOut : {
+    out : List F32,
+    phase : F32,
+}
+
 main = { init, update }
 
-Model : { frameCount : I32, signal : List F32 }
+# Constants
+sampleRate = 44100
+buffer = 256
+pi = 3.141592653589793
 
 init : Task Model []
 init =
-    Task.ok { frameCount: 0, signal: [] }
+    Task.ok {
+        frameCount: 0,
+        sinePhase: 0.0,
+        signal: [],
+    }
 
 update : Model -> Task Model []
 update = \model ->
     newCount = model.frameCount + 1
-    inBuffer <- Core.getCurrentInBuffer |> Task.await
-    # TODO: configure the host platform to retrieve the new signal from the model
-    newSignal = audioCallback inBuffer
-    {} <- Core.setCurrentOutBuffer newSignal |> Task.await
-    Task.ok { model & frameCount: newCount, signal: newSignal }
+    inBuffer <- Task.await Core.getCurrentInBuffer
+    { out, phase } = audioCallback model inBuffer
+    {} <- Task.await (Core.setCurrentOutBuffer out)
+    dbg "Phase: ${phase}"
+
+    Task.ok {
+        frameCount: newCount,
+        sinePhase: phase,
+        signal: out,
+    }
 
 # Currently just mono in, mono out
-audioCallback : List F32 -> List F32
-audioCallback = \input ->
-    testOutSigFunc input
+audioCallback : Model, List F32 -> CycleOut
+audioCallback = \model, _ ->
+    sine model
 
-# A basic in->out signal function
-# testSigFunc : List F32 -> List F32
-# testSigFunc = \input ->
-#     List.map input (\sample -> sample * 0.9)
+# A basic sinewave function
+sine : Model -> CycleOut
+sine = \model ->
+    generateSineWave [] 100 model.sinePhase 0
 
-# A basic out-only signal function
-testOutSigFunc : List F32 -> List F32
-testOutSigFunc = \_ ->
-    List.map ramp mapSine
-
-# Generate a sine table
-sampleRate : F32
-sampleRate = 44100
-
-frequency : F32
-frequency = 440
-
-pi : F32
-pi = 3.141592653589793
-
-ramp : List F32
-ramp = List.range { start: At 0, end: At 511 }
-
-mapSine : F32 -> F32
-mapSine = \src ->
-    twoPIdivSampleRate = 2.0 * pi / sampleRate
-    Num.sin (twoPIdivSampleRate * frequency * src)
+generateSineWave : List F32, F32, F32, U32 -> CycleOut
+generateSineWave = \state, freq, phase, step ->
+    sample = Num.sin (phase * 2 * pi) * 0.5
+    nextPhase = phase + (freq / sampleRate)
+    nextStep = step + 1
+    if
+        step < (buffer)
+    then
+        {
+            out: List.append (generateSineWave state freq nextPhase nextStep).out sample,
+            phase: nextPhase,
+        }
+    else
+        {
+            out: state,
+            phase: nextPhase,
+        }
 

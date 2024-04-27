@@ -1,3 +1,6 @@
 # Realtime audio DSP with Roc
 
 Borrows heavily from Luke Boswell's [roc-ray](https://github.com/lukewilliamboswell/roc-ray)
+
+Dev:  ROC_LINK_FLAGS="-lportaudio" roc dev app.roc
+Build:  ROC_LINK_FLAGS="-lportaudio" roc build app.roc

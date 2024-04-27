@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <portaudio.h>
+#include "portaudio.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -105,20 +105,7 @@ struct RocList
   size_t capacity;
 };
 
-// Define the structure of the Roc model
-// struct Model
-// {
-//   int count;
-//   struct RocList signal;
-// };
-
-// Define the structure of the main Roc function
-struct RocMain
-{
-  void *init;
-  void *update;
-};
-
+// Define the structure of the userData argument to pass to the PortAudio callback
 struct CallbackUserData
 {
   void *model_;
@@ -136,8 +123,6 @@ struct RocList rocOut;
 extern void roc__mainForHost_1_exposed_generic(void *);
 extern size_t roc__mainForHost_1_exposed_size();
 
-// Init
-
 // Arguments: return value from roc, callback, argument to callback?
 extern void roc__mainForHost_0_caller(void *, void *, void *);
 extern size_t roc__mainForHost_0_size();
@@ -152,18 +137,7 @@ extern size_t roc__mainForHost_2_size();
 
 // Effects
 extern struct RocList roc_fx_getCurrentInBuffer();
-
-// Pass the input buffer into Roc
-struct RocList roc_fx_getCurrentInBuffer(void)
-{
-  return rocIn;
-}
-
-// Get the outbut buffer from Roc
-void roc_fx_setCurrentOutBuffer(struct RocList inBuffer)
-{
-  rocOut = inBuffer;
-}
+extern void roc_fx_setCurrentOutBuffer(struct RocList);
 
 // Audio loop callback function
 static int callback(const void *in,
@@ -189,16 +163,11 @@ static int callback(const void *in,
   // Copy the output from the Roc buffer to the audio codec output buffer
   memcpy(out, ud->rocOut_->data, framesPerBuffer * sizeof(float));
 
-  // Release the output buffer
-  // void *ptr = subtract_from_pointer(rocOut.data);
-  // roc_dealloc(ptr, 0);
-
   return paContinue;
 }
 
 int main()
 {
-
   // Initialise Roc
   size_t size = roc__mainForHost_1_exposed_size();
   void *rocMain = roc_alloc(size, 0);
@@ -255,4 +224,18 @@ int main()
   Pa_Terminate();
 
   return 0;
+}
+
+// Roc effect functions
+
+// Pass the input buffer into Roc
+struct RocList roc_fx_getCurrentInBuffer(void)
+{
+  return rocIn;
+}
+
+// Get the outbut buffer from Roc
+void roc_fx_setCurrentOutBuffer(struct RocList inBuffer)
+{
+  rocOut = inBuffer;
 }
