@@ -28,17 +28,17 @@ init : Task Model []
 init =
     Task.ok {
         frameCount: 0,
-        sinePhase: 0.0,
+        sinePhase: 0,
         signal: [],
     }
 
 update : Model -> Task Model []
 update = \model ->
     newCount = model.frameCount + 1
-    inBuffer <- Task.await Core.getCurrentInBuffer
-    { out, phase } = audioCallback model inBuffer
-    {} <- Task.await (Core.setCurrentOutBuffer out)
-    dbg "Phase: ${phase}"
+    # inBuffer <- Task.await Core.getCurrentInBuffer
+    { out, phase } = sine 440 model.sinePhase
+    scalesSine = mul out 0.5
+    {} <- Task.await (Core.setCurrentOutBuffer scalesSine)
 
     Task.ok {
         frameCount: newCount,
@@ -46,21 +46,25 @@ update = \model ->
         signal: out,
     }
 
-# Currently just mono in, mono out
-audioCallback : Model, List F32 -> CycleOut
-audioCallback = \model, _ ->
-    sine model
-
 # A basic sinewave function
-sine : Model -> CycleOut
-sine = \model ->
-    generateSineWave [] 100 model.sinePhase 0
+sine : F32, F32 -> CycleOut
+sine = \freq, phase ->
+
+    generateSineWave [] freq phase 0
 
 generateSineWave : List F32, F32, F32, U32 -> CycleOut
 generateSineWave = \state, freq, phase, step ->
-    sample = Num.sin (phase * 2 * pi) * 0.5
-    nextPhase = phase + (freq / sampleRate)
+    omega = 2 * pi * freq
+    sample = Num.sin phase
     nextStep = step + 1
+    nextPhase =
+        if
+            phase > 2 * pi
+        then
+            phase - 2 * pi
+        else
+            phase + (omega / sampleRate)
+
     if
         step < (buffer)
     then
@@ -69,8 +73,12 @@ generateSineWave = \state, freq, phase, step ->
             phase: nextPhase,
         }
     else
+        # This is the final
         {
             out: state,
             phase: nextPhase,
         }
 
+mul : List F32, F32 -> List F32
+mul = \sig, amount ->
+    sig |> List.map (\samp -> samp * amount)
