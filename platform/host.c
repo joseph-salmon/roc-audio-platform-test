@@ -18,7 +18,7 @@
 #endif
 
 #define SAMPLE_RATE 44100
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 512
 #define NUM_CHANNELS 1 // Adjust for mono (1) or stereo (2)
 
 // Roc memory management
@@ -147,7 +147,6 @@ static int callback(const void *in,
                     PaStreamCallbackFlags statusFlags,
                     void *userData)
 {
-
   // Destructure the userData arg
   struct CallbackUserData *ud = (struct CallbackUserData *)userData;
 
