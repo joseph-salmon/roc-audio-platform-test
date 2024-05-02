@@ -2,54 +2,89 @@ app "app"
     packages { pf: "platform/main.roc" }
     imports [
         pf.Task.{ Task },
-        # pf.Core,
+        pf.Core,
     ]
     provides [main, Model] to pf
 
-main = { init, update, audioCallback }
+Model : {
+    sinePhase : F32,
+}
 
-Model : { frameCount : I32 }
+CycleOut : {
+    outBuffer : List F32,
+    nextPhase : F32,
+}
+
+main = { init, update }
+
+# Constants
+sampleRate = 44100.00
+bufferSize = 256
+pi : F32
+pi = 3.141592653589793
+twoPi = 2.0 * pi
 
 init : Task Model []
 init =
-    Task.ok { frameCount: 0 }
+    Task.ok {
+        sinePhase: 0,
+    }
 
 update : Model -> Task Model []
 update = \model ->
-    newCount = model.frameCount + 1
-    Task.ok { model & frameCount: newCount }
+    # inBuffer <- Task.await Core.getCurrentInBuffer
 
-# Currently just mono in, mono out
-audioCallback : List F32 -> List F32
-audioCallback = \input ->
+    # dbg "CYCLE"
 
-    testOutSigFunc input
+    # dbg model.sinePhase
+    { outBuffer, nextPhase } = sine 200 model.sinePhase
 
-# A basic in->out signal function
-# testSigFunc : List F32 -> List F32
-# testSigFunc = \input ->
-#     List.map input (\sample -> sample * 0.9)
+    # dbg nextPhase
 
-# A basic out-only signal function
-testOutSigFunc : List F32 -> List F32
-testOutSigFunc = \_ ->
-    List.map ramp mapSine
+    scaledSine = List.map outBuffer (\samp -> samp * 0.5)
+    {} <- Task.await (Core.setCurrentOutBuffer scaledSine)
 
-# Generate a sine table
-sampleRate : F32
-sampleRate = 44100
+    Task.ok
+        { model &
+            sinePhase: nextPhase,
+        }
 
-frequency : F32
-frequency = 6000
+# A basic sinewave function
+sine : F32, F32 -> CycleOut
+sine = \freq, phase ->
+    generateSineWave [] freq phase
 
-pi : F32
-pi = 3.141592653589793
+generateSineWave : List F32, F32, F32 -> CycleOut
+generateSineWave = \state, freq, phase ->
 
-ramp : List F32
-ramp = List.range { start: At 0, end: At 511 }
+    # dbg phase
 
-mapSine : F32 -> F32
-mapSine = \src ->
-    twoPIdivSampleRate = 2.0 * pi / sampleRate
-    Num.sin (twoPIdivSampleRate * frequency * src)
+    sample = phase * twoPi |> Num.sin
+
+    nextState = List.append state sample
+    # dbg List.len nextState
+
+    phinc = (freq / sampleRate)
+    nextPhase =
+        if
+            phase >= 1
+        then
+            phase - 1
+        else
+            phase + phinc
+
+    # dbg nextPhase
+
+    if
+        List.len nextState < bufferSize
+    then
+        nextCycle = generateSineWave nextState freq nextPhase
+        { outBuffer: nextCycle.outBuffer, nextPhase: nextCycle.nextPhase }
+    else
+        # This is the final
+        { outBuffer: nextState, nextPhase: nextPhase }
+
+# mul : List F32, F32 -> List F32
+# mul = \sig, amount ->
+#     sig |> List.map (\samp -> samp * amount)
 

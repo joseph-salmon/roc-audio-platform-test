@@ -9,7 +9,6 @@ interface Core
 Program state : {
     init : Task state [],
     update : state -> Task state [],
-    audioCallback : List F32 -> List F32,
 }
 
 getCurrentInBuffer : Task (List F32) []

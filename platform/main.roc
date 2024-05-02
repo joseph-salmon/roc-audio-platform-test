@@ -8,11 +8,10 @@ platform "roc-audio-platform"
 ProgramForHost : {
     init : Task (Box Model) [],
     update : Box Model -> Task (Box Model) [],
-    audioCallback : List F32 -> List F32,
 }
 
 mainForHost : ProgramForHost
-mainForHost = { init, update, audioCallback }
+mainForHost = { init, update }
 
 init : Task (Box Model) []
 init = main.init |> Task.map Box.box
@@ -24,6 +23,3 @@ update = \boxedModel ->
     |> main.update
     |> Task.map
         Box.box
-
-audioCallback : List F32 -> List F32
-audioCallback = main.audioCallback
