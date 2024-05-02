@@ -67,11 +67,13 @@ generateSineWave = \state, freq, phase ->
     phinc = (freq / sampleRate)
     nextPhase =
         if
-            phase > 1 - phinc
+            phase >= 1
         then
-            0.0
+            phase - 1
         else
             phase + phinc
+
+    # dbg nextPhase
 
     if
         List.len nextState < bufferSize
