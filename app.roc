@@ -59,32 +59,26 @@ generateSineWave = \state, freq, phase ->
 
     # dbg phase
 
+    phaseIncrement = (freq / sampleRate)
+
     sample = phase * twoPi |> Num.sin
 
     nextState = List.append state sample
     # dbg List.len nextState
-
-    phinc = (freq / sampleRate)
     nextPhase =
         if
-            phase >= 1
+            phase > 0.99
         then
-            phase - 1
+            phase - 0.99
         else
-            phase + phinc
+            phase + phaseIncrement
 
     # dbg nextPhase
 
     if
         List.len nextState < bufferSize
     then
-        nextCycle = generateSineWave nextState freq nextPhase
-        { outBuffer: nextCycle.outBuffer, nextPhase: nextCycle.nextPhase }
+        generateSineWave nextState freq nextPhase
     else
-        # This is the final
+        # This is the final output
         { outBuffer: nextState, nextPhase: nextPhase }
-
-# mul : List F32, F32 -> List F32
-# mul = \sig, amount ->
-#     sig |> List.map (\samp -> samp * amount)
-
