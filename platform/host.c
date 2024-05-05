@@ -18,7 +18,7 @@
 #endif
 
 #define SAMPLE_RATE 44100
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 1024
 #define NUM_CHANNELS 1 // Adjust for mono (1) or stereo (2)
 
 // Roc memory management

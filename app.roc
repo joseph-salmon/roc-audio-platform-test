@@ -19,7 +19,7 @@ main = { init, update }
 
 # Constants
 sampleRate = 44100.00
-bufferSize = 256
+bufferSize = 1024
 pi : F32
 pi = 3.141592653589793
 twoPi = 2.0 * pi
@@ -37,7 +37,7 @@ update = \model ->
     # dbg "CYCLE"
 
     # dbg model.sinePhase
-    { outBuffer, nextPhase } = sine 200 model.sinePhase
+    { outBuffer, nextPhase } = sine 220 model.sinePhase
 
     # dbg nextPhase
 
@@ -67,13 +67,11 @@ generateSineWave = \state, freq, phase ->
     # dbg List.len nextState
     nextPhase =
         if
-            phase > 0.99
+            (phase |> Num.ceiling |> Num.toF32) > 1
         then
-            phase - 0.99
+            0
         else
             phase + phaseIncrement
-
-    # dbg nextPhase
 
     if
         List.len nextState < bufferSize
