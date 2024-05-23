@@ -1,10 +1,7 @@
-interface Core
-    exposes [
-        Program,
-        getCurrentInBuffer,
-        setCurrentOutBuffer,
-    ]
-    imports [InternalTask, Task.{ Task }, Effect.{ Effect }]
+module [Program, getCurrentInBuffer, setCurrentOutBuffer]
+import InternalTask
+import Task exposing [Task]
+import Effect
 
 Program state : {
     init : Task state [],

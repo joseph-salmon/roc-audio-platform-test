@@ -1,28 +1,23 @@
-app "app"
-    packages { pf: "platform/main.roc" }
-    imports [
-        pf.Task.{ Task },
-        pf.Core,
-    ]
-    provides [main, Model] to pf
+app [main, Model] { pf: platform "platform/main.roc" }
+
+import pf.Task exposing [Task]
+import pf.Core
 
 Model : {
     sinePhase : F32,
 }
 
 CycleOut : {
-    outBuffer : List F32,
-    nextPhase : F32,
+    buffer : List F32,
+    phase : F32,
 }
 
 main = { init, update }
 
 # Constants
-sampleRate = 44100.00
+sampleRate = 44100
 bufferSize = 1024
-pi : F32
-pi = 3.141592653589793
-twoPi = 2.0 * pi
+twoPi = 2 * Num.pi
 
 init : Task Model []
 init =
@@ -32,42 +27,25 @@ init =
 
 update : Model -> Task Model []
 update = \model ->
-    # inBuffer <- Task.await Core.getCurrentInBuffer
 
-    # dbg "CYCLE"
-
-    # dbg model.sinePhase
-    { outBuffer, nextPhase } = sine 220 model.sinePhase
-
-    # dbg nextPhase
-
-    scaledSine = List.map outBuffer (\samp -> samp * 0.5)
+    { buffer, phase } = generateSineWave [] 100 model.sinePhase
+    scaledSine = List.map buffer (\samp -> samp * 0.5)
     {} <- Task.await (Core.setCurrentOutBuffer scaledSine)
 
     Task.ok
         { model &
-            sinePhase: nextPhase,
+            sinePhase: phase,
         }
 
 # A basic sinewave function
-sine : F32, F32 -> CycleOut
-sine = \freq, phase ->
-    generateSineWave [] freq phase
-
 generateSineWave : List F32, F32, F32 -> CycleOut
 generateSineWave = \state, freq, phase ->
-
-    # dbg phase
-
     phaseIncrement = (freq / sampleRate)
-
-    sample = phase * twoPi |> Num.sin
-
+    sample = Num.sin (phase * twoPi)
     nextState = List.append state sample
-    # dbg List.len nextState
     nextPhase =
         if
-            (phase |> Num.ceiling |> Num.toF32) > 1
+            phase > 1
         then
             0
         else
@@ -78,5 +56,4 @@ generateSineWave = \state, freq, phase ->
     then
         generateSineWave nextState freq nextPhase
     else
-        # This is the final output
-        { outBuffer: nextState, nextPhase: nextPhase }
+        { buffer: nextState, phase: nextPhase }

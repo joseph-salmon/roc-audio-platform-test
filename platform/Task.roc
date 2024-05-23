@@ -1,21 +1,21 @@
-interface Task
-    exposes [
-        Task,
-        ok,
-        err,
-        await,
-        map,
-        mapErr,
-        onErr,
-        attempt,
-        forever,
-        loop,
-        fromResult,
-        batch,
-        seq,
-        forEach,
-    ]
-    imports [Effect, InternalTask]
+module [
+    Task,
+    ok,
+    err,
+    await,
+    map,
+    mapErr,
+    onErr,
+    attempt,
+    forever,
+    loop,
+    fromResult,
+    batch,
+    seq,
+    forEach,
+]
+import Effect
+import InternalTask
 
 ## A Task represents an effect; an interaction with state outside your Roc
 ## program, such as the terminal's standard output, or a file.
